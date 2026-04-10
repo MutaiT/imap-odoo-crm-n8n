@@ -1,5 +1,5 @@
 {
-  "name": "My workflow",
+  "name": "IMAP to Odoo CRM Integration",
   "nodes": [
     {
       "parameters": {
