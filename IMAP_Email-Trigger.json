@@ -1,0 +1,229 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        -464,
+        64
+      ],
+      "id": "0f82c88d-b76f-4511-9ea8-ac59da5a1a5a",
+      "name": "Email Trigger (IMAP)",
+      "credentials": {
+        "imap": {
+          "id": "kcyr7TPTwwlWiIOi",
+          "name": "IMAP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "opportunity",
+        "opportunityName": "={{ $('Parse Email Data').first().json.name }}",
+        "additionalFields": {
+          "email_from": "={{ $('Parse Email Data').first().json.email_from }}",
+          "description": "={{ $('Parse Email Data').first().json.description }}",
+          "phone": "={{ $('Parse Email Data').first().json.phone }}"
+        }
+      },
+      "type": "n8n-nodes-base.odoo",
+      "typeVersion": 1,
+      "position": [
+        1136,
+        -432
+      ],
+      "id": "56111a6a-1e00-4120-93ce-da53917c52d0",
+      "name": "Create an opportunity",
+      "credentials": {
+        "odooApi": {
+          "id": "NomETIJE72sx3wip",
+          "name": "Odoo account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        16
+      ],
+      "id": "a805fc70-823c-4566-bbd4-c01d8f5a00d9",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.first().json;\n\n// Extract email from body using regex\nconst bodyText = email.textPlain || \"\";\nconst emailMatch = bodyText.match(/[\\w.-]+@[\\w.-]+\\.[a-zA-Z]{2,}/g) || [];\nconst senderEmail = emailMatch[emailMatch.length - 1] || \"\";\n\n// Extract name from body - looks for \"Best Regards,\\n Name\" pattern\nconst nameMatch = bodyText.match(/Best Regards,?\\s*\\n\\s*(.+)/i);\nconst senderName = nameMatch ? nameMatch[1].trim() : \"\";\n\n// Extract phone from body\nconst phoneMatch = bodyText.match(/(\\+?[\\d\\s\\-]{7,15})/);\nconst phone = phoneMatch ? phoneMatch[1].trim() : \"\";\n\nreturn [{\n  json: {\n    contact_name: senderName,\n    email_from: senderEmail,\n    name: email.subject || \"New Lead\",\n    description: bodyText,\n    phone: phone\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        -192
+      ],
+      "id": "2ad26601-cd29-4fe6-ab45-013d8068b61c",
+      "name": "Parse Email Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const searchResults = $input.all();\nconst incomingSubject = $('Parse Email Data').first().json.name;\n\nconst isDuplicate = searchResults.some(item => \n  item.json.display_name === incomingSubject\n);\n\nreturn [{ json: { isDuplicate } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        -192
+      ],
+      "id": "ae4d3587-ce18-4ce1-a060-43449f2e4d3f",
+      "name": "Check Duplicate Logic"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d08eda77-d45b-4e50-862f-2759228b9dd9",
+              "leftValue": "={{ $json.isDuplicate }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        800,
+        -192
+      ],
+      "id": "5eb0e0ba-d992-4676-ac8e-23f3f0c25c36",
+      "name": "Is Duplicate?"
+    },
+    {
+      "parameters": {
+        "resource": "custom",
+        "customResource": "crm.lead",
+        "operation": "getAll",
+        "limit": 1,
+        "options": {},
+        "filterRequest": {
+          "filter": [
+            {
+              "fieldName": "email_from",
+              "value": "={{ $json.email_from }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.odoo",
+      "typeVersion": 1,
+      "position": [
+        192,
+        -192
+      ],
+      "id": "1dd71dfa-ce04-4ea9-820d-74c9643a708c",
+      "name": "Search Existing Leads",
+      "alwaysOutputData": true,
+      "credentials": {
+        "odooApi": {
+          "id": "NomETIJE72sx3wip",
+          "name": "Odoo account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Email Trigger (IMAP)": {
+      "main": [
+        [
+          {
+            "node": "Parse Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Email Data": {
+      "main": [
+        [
+          {
+            "node": "Search Existing Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Duplicate Logic": {
+      "main": [
+        [
+          {
+            "node": "Is Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "Create an opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Existing Leads": {
+      "main": [
+        [
+          {
+            "node": "Check Duplicate Logic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "01807f32-5952-401f-8b9c-972b2d4d3f96",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "85ea6dcca70eeefcf5d94ae5c649a5836b0ffc1ed4f91836ecdedf49f95fac86"
+  },
+  "id": "RovWUyKlTY3Dz6hg",
+  "tags": []
+}
