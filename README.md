@@ -28,3 +28,6 @@ Email Trigger (IMAP) → Parse Email Data → Search Existing Leads → Check Du
 - Is Duplicate? (IF node)
 - Create an opportunity (Odoo node)
 - No Operation
+
+## Workflow Screenshot
+![Workflow](email-odoo-crm-n8n_Workflow.png)
